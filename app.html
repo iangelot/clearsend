@@ -120,6 +120,12 @@
     .pill-err{background:rgba(255,85,85,.1);color:var(--red)}
     .dl-btn{display:inline-flex;align-items:center;gap:.3rem;padding:.38rem .85rem;border-radius:100px;background:rgba(37,211,102,.12);color:var(--green);border:1px solid rgba(37,211,102,.25);font-size:.76rem;font-weight:500;cursor:pointer;transition:all .2s;text-decoration:none}
     .dl-btn:hover{background:rgba(37,211,102,.22);transform:translateY(-1px)}
+    .action-row{display:flex;flex-wrap:wrap;gap:.45rem;align-items:center;margin-top:.1rem}
+    .wa-btn{display:none;align-items:center;gap:.35rem;padding:.4rem .9rem;border-radius:100px;font-size:.76rem;font-weight:600;cursor:pointer;transition:all .2s;border:none;text-decoration:none}
+    .wa-contact{background:var(--green);color:#080c0a}
+    .wa-contact:hover{background:#2de873;transform:translateY(-1px)}
+    .wa-status{background:rgba(91,156,246,.15);color:var(--blue);border:1px solid rgba(91,156,246,.3) !important;border:none}
+    .wa-status:hover{background:rgba(91,156,246,.25);transform:translateY(-1px)}
 
     /* ── TIP ── */
     .tip{background:rgba(7,94,84,.28);border:1px solid rgba(37,211,102,.14);border-radius:12px;padding:.85rem 1rem;font-size:.8rem;color:var(--muted);line-height:1.65;margin-top:1.25rem}
@@ -573,12 +579,15 @@ function procImage(file, id) {
       cv.toBlob(blob => {
         if (!blob) { fail(new Error('Canvas failed')); return; }
         setProg(id, 100, 'Done!');
-        const saved = file.size - blob.size;
-        S.saved += Math.max(0, saved);
+        S.saved += Math.max(0, file.size - blob.size);
         const dlUrl = URL.createObjectURL(blob);
         const name = file.name.replace(/\.[^/.]+$/,'');
+        const fileName = name + '_whatsapp.jpg';
+        const canShare = canWebShare(blob, fileName);
         setMeta(id, `${(file.size/1024/1024).toFixed(2)} MB → ${(blob.size/1024/1024).toFixed(2)} MB${resized?' · Resized to '+w+'px':''}`);
-        setRight(id, `<a class="dl-btn" href="${dlUrl}" download="${name}_whatsapp.jpg">↓ Download</a>`);
+        setRight(id, buildActions(dlUrl, fileName, blob, S.mode==='status', false, canShare, id));
+        window._blobs = window._blobs || {};
+        window._blobs[id] = { blob, fileName, isStatus: S.mode==='status', isDoc: false };
         showForward(id, S.mode==='status', false);
         URL.revokeObjectURL(url);
         ok();
@@ -675,10 +684,16 @@ async function finishVideo(file, id, outN, isStatus, isDoc) {
   const dlUrl = URL.createObjectURL(blob);
   const name = file.name.replace(/\.[^/.]+$/,'');
   const suffix = isDoc ? '_document' : isStatus ? '_status' : '_whatsapp';
+  const fileName = name + suffix + '.mp4';
   setProg(id, 100, 'Done!');
   const sizeWarn = (!isDoc && blob.size > 16*1024*1024) ? ' ⚠️ Over 16MB — trim shorter' : '';
   setMeta(id, `${origMb} MB → ${mb} MB${isDoc?' · Original quality':' · 720p HD'}${sizeWarn}`);
-  setRight(id, `<a class="dl-btn" href="${dlUrl}" download="${name}${suffix}.mp4">↓ Download</a>`);
+  // Build action buttons
+  const canShare = canWebShare(blob, fileName);
+  setRight(id, buildActions(dlUrl, fileName, blob, isStatus, isDoc, canShare, id));
+  // Store blob reference for share buttons
+  window._blobs = window._blobs || {};
+  window._blobs[id] = { blob, fileName, isStatus, isDoc };
   showForward(id, isStatus, isDoc);
 }
 
@@ -780,6 +795,65 @@ function toggleAuthMode() {
 function doCheckout() {
   // TODO: FlutterwaveCheckout({ public_key:'YOUR_KEY', amount:3, currency:'USD', ... })
   alert('Payment will be connected via Flutterwave. Add your public key to activate MTN MoMo, Orange Money, and card payments.');
+}
+
+// ═══════════════════════════════════════════════════
+// SHARE HELPERS
+// ═══════════════════════════════════════════════════
+function canWebShare(blob, fileName) {
+  if (!navigator.canShare) return false;
+  try {
+    const file = new File([blob], fileName, { type: blob.type });
+    return navigator.canShare({ files: [file] });
+  } catch(e) { return false; }
+}
+
+function buildActions(dlUrl, fileName, blob, isStatus, isDoc, canShare, id) {
+  let html = `<div class="action-row">`;
+  // Download always available
+  html += `<a class="dl-btn" href="${dlUrl}" download="${fileName}">↓ Download</a>`;
+  // Share buttons — only shown if Web Share API supports files (mobile)
+  if (canShare) {
+    if (!isDoc) {
+      html += `<button class="wa-btn wa-contact" onclick="shareFile('${id}','contact')">📲 Send to Contact</button>`;
+    }
+    if (!isDoc) {
+      html += `<button class="wa-btn wa-status" onclick="shareFile('${id}','status')" style="display:inline-flex">⭕ Post to Status</button>`;
+    }
+    if (isDoc) {
+      html += `<button class="wa-btn wa-contact" onclick="shareFile('${id}','doc')">📎 Send as Document</button>`;
+    }
+  }
+  html += `</div>`;
+  return html;
+}
+
+async function shareFile(id, target) {
+  const ref = window._blobs && window._blobs[id];
+  if (!ref) return;
+  const { blob, fileName } = ref;
+  const file = new File([blob], fileName, { type: blob.type });
+  try {
+    if (target === 'status') {
+      // Open WhatsApp Status directly on mobile
+      window.location.href = 'whatsapp://status';
+      // Also trigger share sheet after short delay
+      setTimeout(async () => {
+        try { await navigator.share({ files: [file], title: 'ClearSend HD' }); } catch(e){}
+      }, 800);
+    } else {
+      // Share sheet → user picks contact inside WhatsApp
+      await navigator.share({
+        files: [file],
+        title: 'ClearSend HD',
+        text: target === 'doc' ? 'Open as Document for full quality ✅' : 'HD quality preserved by ClearSend ✅'
+      });
+    }
+  } catch(err) {
+    if (err.name !== 'AbortError') {
+      alert('Sharing failed. Please use the Download button instead.');
+    }
+  }
 }
 
 init();
