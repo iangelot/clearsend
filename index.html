@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ClearSend — Send HD Videos & Photos on WhatsApp</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --green: #25D366;
+      --green-dim: #128C7E;
+      --green-dark: #075E54;
+      --green-glow: rgba(37,211,102,0.18);
+      --bg: #0B141A;
+      --bg2: #111B21;
+      --bg3: #1F2C34;
+      --surface: rgba(37,211,102,0.04);
+      --border: rgba(37,211,102,0.18);
+      --text: #E9EDF0;
+      --muted: rgba(233,237,240,0.5);
+      --font-head: 'Syne', sans-serif;
+      --font-body: 'DM Sans', sans-serif;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-body);
+      font-weight: 400;
+      overflow-x: hidden;
+    }
+
+    /* ── NOISE OVERLAY ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+      opacity: .5;
+    }
+
+    /* ── NAV ── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 1.25rem 2.5rem;
+      backdrop-filter: blur(16px);
+      background: rgba(7,94,84,0.95);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .logo {
+      display: flex; align-items: center; gap: .6rem;
+      font-family: var(--font-head); font-weight: 800; font-size: 1.25rem;
+      color: var(--text); text-decoration: none; letter-spacing: -.02em;
+    }
+    .logo-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--green); box-shadow: 0 0 10px var(--green); }
+
+    .nav-links { display: flex; align-items: center; gap: 2rem; }
+    .nav-links a { color: var(--muted); text-decoration: none; font-size: .9rem; transition: color .2s; }
+    .nav-links a:hover { color: var(--text); }
+
+    .btn {
+      display: inline-flex; align-items: center; gap: .5rem;
+      padding: .65rem 1.4rem; border-radius: 100px;
+      font-family: var(--font-body); font-size: .9rem; font-weight: 500;
+      cursor: pointer; transition: all .25s; text-decoration: none; border: none;
+    }
+    .btn-primary {
+      background: var(--green); color: #080c0a;
+      box-shadow: 0 0 24px rgba(37,211,102,.3);
+    }
+    .btn-primary:hover { background: #2de873; box-shadow: 0 0 36px rgba(37,211,102,.5); transform: translateY(-1px); }
+    .btn-ghost { background: transparent; color: var(--text); border: 1px solid var(--border); }
+    .btn-ghost:hover { background: var(--surface); border-color: rgba(37,211,102,.4); }
+
+    /* ── HERO ── */
+    .hero {
+      position: relative; min-height: 100vh;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center; padding: 8rem 2rem 4rem;
+      overflow: hidden;
+    }
+
+    /* Green radial glow background */
+    .hero::after {
+      content: '';
+      position: absolute; top: 20%; left: 50%; transform: translateX(-50%);
+      width: 700px; height: 700px; border-radius: 50%;
+      background: radial-gradient(ellipse, rgba(7,94,84,0.35) 0%, rgba(37,211,102,0.08) 50%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: .5rem;
+      padding: .4rem 1rem; border-radius: 100px;
+      background: rgba(37,211,102,0.1); border: 1px solid rgba(37,211,102,0.25);
+      font-size: .8rem; color: var(--green); margin-bottom: 2rem;
+      animation: fadeUp .6s ease both;
+    }
+    .badge-pulse { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(37,211,102,.4); }
+      50% { opacity: .7; box-shadow: 0 0 0 6px rgba(37,211,102,0); }
+    }
+
+    .hero h1 {
+      font-family: var(--font-head); font-weight: 800;
+      font-size: clamp(2.8rem, 7vw, 5.5rem);
+      line-height: 1.05; letter-spacing: -.04em;
+      max-width: 800px; margin-bottom: 1.5rem;
+      animation: fadeUp .7s .1s ease both;
+    }
+
+    .hero h1 span { color: var(--green); }
+
+    .hero p {
+      font-size: clamp(1rem, 2.5vw, 1.2rem); color: var(--muted);
+      max-width: 520px; line-height: 1.7; margin-bottom: 2.5rem;
+      font-weight: 300;
+      animation: fadeUp .7s .2s ease both;
+    }
+
+    .hero-cta {
+      display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center;
+      margin-bottom: 4rem;
+      animation: fadeUp .7s .3s ease both;
+    }
+
+    .hero-cta .btn { padding: .85rem 2rem; font-size: 1rem; }
+
+    /* ── COMPARISON VISUAL ── */
+    .comparison {
+      display: flex; align-items: center; gap: 0;
+      border-radius: 20px; overflow: hidden;
+      border: 1px solid var(--border);
+      box-shadow: 0 0 60px rgba(37,211,102,.08);
+      max-width: 600px; width: 100%;
+      animation: fadeUp .8s .4s ease both;
+    }
+
+    .comp-side {
+      flex: 1; padding: 1.5rem;
+      display: flex; flex-direction: column; align-items: center; gap: .75rem;
+    }
+    .comp-side.bad { background: rgba(255,60,60,.05); border-right: 1px solid var(--border); }
+    .comp-side.good { background: rgba(37,211,102,.05); }
+
+    .comp-icon { font-size: 2.5rem; }
+    .comp-label { font-family: var(--font-head); font-size: .8rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+    .comp-side.bad .comp-label { color: #ff6b6b; }
+    .comp-side.good .comp-label { color: var(--green); }
+    .comp-desc { font-size: .82rem; color: var(--muted); text-align: center; }
+
+    /* ── SECTION ── */
+    section { position: relative; z-index: 1; }
+
+    .section-inner {
+      max-width: 1100px; margin: 0 auto; padding: 6rem 2rem;
+    }
+
+    .section-label {
+      font-size: .78rem; letter-spacing: .12em; text-transform: uppercase;
+      color: var(--green); font-weight: 600; margin-bottom: 1rem;
+    }
+
+    .section-title {
+      font-family: var(--font-head); font-weight: 800;
+      font-size: clamp(2rem, 4vw, 3rem);
+      letter-spacing: -.03em; line-height: 1.1;
+      margin-bottom: 1rem;
+    }
+
+    .section-sub {
+      color: var(--muted); font-size: 1.05rem; font-weight: 300;
+      max-width: 480px; line-height: 1.7;
+    }
+
+    /* ── HOW IT WORKS ── */
+    .steps {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1.5rem; margin-top: 3.5rem;
+    }
+
+    .step {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 20px; padding: 2rem;
+      transition: border-color .3s, transform .3s;
+      position: relative; overflow: hidden;
+    }
+
+    .step::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, transparent, var(--green), transparent);
+      opacity: 0; transition: opacity .3s;
+    }
+
+    .step:hover { border-color: rgba(37,211,102,.35); transform: translateY(-4px); }
+    .step:hover::before { opacity: 1; }
+
+    .step-num {
+      font-family: var(--font-head); font-size: 3.5rem; font-weight: 800;
+      color: rgba(37,211,102,.12); line-height: 1; margin-bottom: .75rem;
+      letter-spacing: -.05em;
+    }
+    .step-icon { font-size: 1.8rem; margin-bottom: .75rem; }
+    .step h3 { font-family: var(--font-head); font-size: 1.1rem; font-weight: 700; margin-bottom: .5rem; }
+    .step p { color: var(--muted); font-size: .9rem; line-height: 1.6; font-weight: 300; }
+
+    /* ── FEATURES ── */
+    .features-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.25rem; margin-top: 3.5rem;
+    }
+
+    .feature-card {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 16px; padding: 1.75rem;
+      transition: all .3s;
+    }
+    .feature-card:hover { border-color: rgba(37,211,102,.3); background: var(--bg3); }
+
+    .feature-icon-wrap {
+      width: 44px; height: 44px; border-radius: 12px;
+      background: rgba(37,211,102,.1); border: 1px solid rgba(37,211,102,.2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.3rem; margin-bottom: 1rem;
+    }
+    .feature-card h3 { font-family: var(--font-head); font-size: 1rem; font-weight: 700; margin-bottom: .4rem; }
+    .feature-card p { color: var(--muted); font-size: .875rem; line-height: 1.6; font-weight: 300; }
+
+    /* ── PRICING ── */
+    .pricing-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.5rem; margin-top: 3.5rem; max-width: 700px;
+    }
+
+    .pricing-card {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 24px; padding: 2.5rem;
+      position: relative; overflow: hidden;
+      transition: transform .3s;
+    }
+
+    .pricing-card.featured {
+      border-color: var(--green);
+      background: linear-gradient(135deg, rgba(37,211,102,.08), var(--bg2));
+      box-shadow: 0 0 40px rgba(37,211,102,.12);
+    }
+
+    .pricing-card:hover { transform: translateY(-4px); }
+
+    .pricing-badge {
+      display: inline-block; padding: .3rem .8rem; border-radius: 100px;
+      background: var(--green); color: #080c0a;
+      font-size: .72rem; font-weight: 700; letter-spacing: .06em;
+      text-transform: uppercase; margin-bottom: 1.5rem;
+    }
+
+    .pricing-price {
+      font-family: var(--font-head); font-size: 3rem; font-weight: 800;
+      letter-spacing: -.04em; line-height: 1; margin-bottom: .25rem;
+    }
+    .pricing-price span { font-size: 1rem; font-weight: 400; color: var(--muted); }
+    .pricing-name { color: var(--muted); font-size: .9rem; margin-bottom: 2rem; }
+
+    .pricing-features { list-style: none; display: flex; flex-direction: column; gap: .75rem; margin-bottom: 2rem; }
+    .pricing-features li {
+      display: flex; align-items: center; gap: .75rem;
+      font-size: .9rem; color: var(--muted);
+    }
+    .pricing-features li::before { content: '✓'; color: var(--green); font-weight: 700; flex-shrink: 0; }
+    .pricing-features li.muted-feat::before { content: '–'; color: rgba(255,255,255,.2); }
+    .pricing-features li.muted-feat { color: rgba(255,255,255,.2); }
+
+    .btn-full { width: 100%; justify-content: center; padding: .9rem; font-size: 1rem; }
+
+    /* ── FAQ ── */
+    .faq-list { margin-top: 3rem; display: flex; flex-direction: column; gap: 1rem; max-width: 700px; }
+
+    .faq-item {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 14px; overflow: hidden;
+    }
+
+    .faq-q {
+      width: 100%; padding: 1.25rem 1.5rem;
+      background: none; border: none; cursor: pointer;
+      display: flex; justify-content: space-between; align-items: center;
+      color: var(--text); font-family: var(--font-body); font-size: .95rem; font-weight: 500;
+      text-align: left;
+    }
+
+    .faq-q svg { flex-shrink: 0; transition: transform .3s; }
+    .faq-item.open .faq-q svg { transform: rotate(45deg); }
+
+    .faq-a {
+      max-height: 0; overflow: hidden;
+      padding: 0 1.5rem; color: var(--muted); font-size: .9rem; line-height: 1.7;
+      transition: max-height .35s ease, padding .35s ease;
+    }
+    .faq-item.open .faq-a { max-height: 200px; padding: 0 1.5rem 1.25rem; }
+
+    /* ── CTA BANNER ── */
+    .cta-banner {
+      background: linear-gradient(135deg, rgba(7,94,84,0.6), rgba(37,211,102,.08));
+      border: 1px solid rgba(37,211,102,.3); border-radius: 28px;
+      padding: 4rem 3rem; text-align: center; margin: 0 2rem;
+    }
+    .cta-banner h2 { font-family: var(--font-head); font-size: clamp(1.8rem, 4vw, 2.8rem); font-weight: 800; margin-bottom: 1rem; letter-spacing: -.03em; }
+    .cta-banner p { color: var(--muted); font-size: 1rem; font-weight: 300; margin-bottom: 2rem; }
+
+    /* ── FOOTER ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 2.5rem 2rem;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 1rem;
+      color: var(--muted); font-size: .85rem;
+    }
+    footer a { color: var(--muted); text-decoration: none; }
+    footer a:hover { color: var(--text); }
+
+    /* ── ANIMATIONS ── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .reveal {
+      opacity: 0; transform: translateY(30px);
+      transition: opacity .7s ease, transform .7s ease;
+    }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 640px) {
+      nav { padding: 1rem 1.25rem; }
+      .nav-links { display: none; }
+      .hero { padding: 7rem 1.25rem 3rem; }
+      .section-inner { padding: 4rem 1.25rem; }
+      .cta-banner { padding: 2.5rem 1.5rem; margin: 0 1rem; }
+      footer { flex-direction: column; align-items: flex-start; }
+      .comparison { flex-direction: column; }
+      .comp-side.bad { border-right: none; border-bottom: 1px solid var(--border); }
+      .pricing-grid { grid-template-columns: 1fr; max-width: 100%; }
+      .hero-cta .btn { width: 100%; justify-content: center; }
+      .hero-cta { flex-direction: column; align-items: stretch; max-width: 320px; margin-left: auto; margin-right: auto; }
+    }
+    @media (max-width: 420px) {
+      .logo span:not(.logo-dot) { font-size: 1rem; }
+      .btn { padding: .55rem 1rem; font-size: .82rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav>
+    <a href="index.html" class="logo">
+      <span class="logo-dot"></span> ClearSend
+    </a>
+    <div class="nav-links">
+      <a href="#how">How it works</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#faq">FAQ</a>
+    </div>
+    <a href="app.html" class="btn btn-primary">Try Free →</a>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-badge"><span class="badge-pulse"></span> No quality loss. Ever.</div>
+    <h1>Send <span>HD photos & videos</span> on WhatsApp</h1>
+    <p>WhatsApp silently destroys the quality of everything you send. ClearSend prepares your files so WhatsApp has nothing left to compress.</p>
+    <div class="hero-cta">
+      <a href="app.html" class="btn btn-primary">Start for free →</a>
+      <a href="#how" class="btn btn-ghost">See how it works</a>
+    </div>
+
+    <div class="comparison">
+      <div class="comp-side bad">
+        <div class="comp-icon">😢</div>
+        <div class="comp-label">Without ClearSend</div>
+        <div class="comp-desc">WhatsApp compresses your file. Blurry. Pixelated. Low quality.</div>
+      </div>
+      <div class="comp-side good">
+        <div class="comp-icon">🤩</div>
+        <div class="comp-label">With ClearSend</div>
+        <div class="comp-desc">File is optimized first. WhatsApp passes it through unchanged.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <section id="how">
+    <div class="section-inner">
+      <p class="section-label reveal">How it works</p>
+      <h2 class="section-title reveal">Three steps.<br/>Crystal clear results.</h2>
+      <p class="section-sub reveal">No account needed for your first 3 files. Just upload and go.</p>
+
+      <div class="steps">
+        <div class="step reveal">
+          <div class="step-num">01</div>
+          <div class="step-icon">📤</div>
+          <h3>Upload your file</h3>
+          <p>Drag and drop your photo or video. Works with any format — MP4, MOV, JPG, PNG, HEIC.</p>
+        </div>
+        <div class="step reveal">
+          <div class="step-num">02</div>
+          <div class="step-icon">⚡</div>
+          <h3>We optimize it</h3>
+          <p>Your file is processed entirely in your browser. Nothing is uploaded to our servers. Fast, private, secure.</p>
+        </div>
+        <div class="step reveal">
+          <div class="step-num">03</div>
+          <div class="step-icon">📲</div>
+          <h3>Send on WhatsApp</h3>
+          <p>Download the optimized file and send it on WhatsApp. Full HD quality reaches your recipient.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FEATURES -->
+  <section style="background: #0d1f1d; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);">
+    <div class="section-inner">
+      <p class="section-label reveal">Features</p>
+      <h2 class="section-title reveal">Everything you need.<br/>Nothing you don't.</h2>
+      <div class="features-grid">
+        <div class="feature-card reveal">
+          <div class="feature-icon-wrap">🖼️</div>
+          <h3>Images</h3>
+          <p>Photos optimized to the exact resolution and quality that WhatsApp accepts without re-compressing.</p>
+        </div>
+        <div class="feature-card reveal">
+          <div class="feature-icon-wrap">🎬</div>
+          <h3>Videos</h3>
+          <p>H.264 encoding at the right bitrate so your wedding videos, clips, and memories stay sharp.</p>
+        </div>
+        <div class="feature-card reveal">
+          <div class="feature-icon-wrap">🔒</div>
+          <h3>100% Private</h3>
+          <p>All processing happens inside your browser. Your files never leave your device. We see nothing.</p>
+        </div>
+        <div class="feature-card reveal">
+          <div class="feature-icon-wrap">🚫</div>
+          <h3>No Watermark</h3>
+          <p>Your files come out clean. No logos, no branding, no watermarks. Completely yours.</p>
+        </div>
+        <div class="feature-card reveal">
+          <div class="feature-icon-wrap">📱</div>
+          <h3>Works on All Devices</h3>
+          <p>Phone, tablet, or computer. Any browser. No app to install.</p>
+        </div>
+        <div class="feature-card reveal">
+          <div class="feature-icon-wrap">⚡</div>
+          <h3>Instant Results</h3>
+          <p>No waiting for server uploads. Processing starts the moment you drop your file.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PRICING -->
+  <section id="pricing">
+    <div class="section-inner">
+      <p class="section-label reveal">Pricing</p>
+      <h2 class="section-title reveal">Simple, fair pricing.</h2>
+      <p class="section-sub reveal">Start free. Upgrade when you need more.</p>
+
+      <div class="pricing-grid">
+        <div class="pricing-card reveal">
+          <div class="pricing-price">$0</div>
+          <div class="pricing-name">Free forever</div>
+          <ul class="pricing-features">
+            <li>3 files per day</li>
+            <li>Images & videos</li>
+            <li>No watermark</li>
+            <li>Private — no uploads</li>
+            <li class="muted-feat">Unlimited files</li>
+            <li class="muted-feat">Batch processing</li>
+          </ul>
+          <a href="app.html" class="btn btn-ghost btn-full">Get started free</a>
+        </div>
+        <div class="pricing-card featured reveal">
+          <div class="pricing-badge">Most Popular</div>
+          <div class="pricing-price">$3 <span>/ month</span></div>
+          <div class="pricing-name">Pro — unlimited everything</div>
+          <ul class="pricing-features">
+            <li>Unlimited files</li>
+            <li>Images & videos</li>
+            <li>No watermark</li>
+            <li>Private — no uploads</li>
+            <li>Batch processing</li>
+            <li>Priority support</li>
+          </ul>
+          <a href="app.html" class="btn btn-primary btn-full">Get Pro →</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section id="faq" style="background: #0d1f1d; border-top: 1px solid var(--border);">
+    <div class="section-inner">
+      <p class="section-label reveal">FAQ</p>
+      <h2 class="section-title reveal">Questions answered.</h2>
+      <div class="faq-list">
+        <div class="faq-item reveal">
+          <button class="faq-q">Why does WhatsApp reduce quality?
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </button>
+          <div class="faq-a">WhatsApp automatically compresses all photos and videos to save bandwidth and storage for their servers. A 10MB video can arrive at 1MB — blurry and pixelated. ClearSend pre-compresses your file to exactly what WhatsApp expects, so it stops touching it.</div>
+        </div>
+        <div class="faq-item reveal">
+          <button class="faq-q">Is my video or photo uploaded anywhere?
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </button>
+          <div class="faq-a">No. Everything happens inside your browser using WebAssembly technology. Your files stay on your device at all times. We cannot see them, access them, or store them.</div>
+        </div>
+        <div class="faq-item reveal">
+          <button class="faq-q">Does it work for WhatsApp Status too?
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </button>
+          <div class="faq-a">Yes! ClearSend works for both direct messages and WhatsApp Status. The optimization targets the exact compression parameters WhatsApp uses for both.</div>
+        </div>
+        <div class="faq-item reveal">
+          <button class="faq-q">How do I pay? I'm in Africa.
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </button>
+          <div class="faq-a">We accept MTN Mobile Money, Orange Money, and all major debit/credit cards (Visa, Mastercard). No need for an international bank account.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA BANNER -->
+  <section style="padding: 5rem 0;">
+    <div class="cta-banner reveal">
+      <h2>Your memories deserve to be seen clearly.</h2>
+      <p>Start for free. No credit card. No installation.</p>
+      <a href="app.html" class="btn btn-primary" style="padding: .95rem 2.5rem; font-size: 1.05rem;">Open ClearSend →</a>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <a href="index.html" class="logo" style="font-size: 1rem;">
+      <span class="logo-dot"></span> ClearSend
+    </a>
+    <span>© 2026 ClearSend. All rights reserved.</span>
+    <div style="display:flex;gap:1.5rem;">
+      <a href="#">Privacy</a>
+      <a href="#">Terms</a>
+      <a href="#">Contact</a>
+    </div>
+  </footer>
+
+  <script>
+    // Reveal on scroll
+    const reveals = document.querySelectorAll('.reveal');
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((e, i) => {
+        if (e.isIntersecting) {
+          setTimeout(() => e.target.classList.add('visible'), i * 60);
+          observer.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.12 });
+    reveals.forEach(el => observer.observe(el));
+
+    // FAQ accordion
+    document.querySelectorAll('.faq-q').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const item = btn.closest('.faq-item');
+        const isOpen = item.classList.contains('open');
+        document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('open'));
+        if (!isOpen) item.classList.add('open');
+      });
+    });
+  </script>
+</body>
+</html>
